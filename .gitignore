@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Cesium built assets (large binaries — run `npm run copy-cesium` locally)
+/public/cesium/

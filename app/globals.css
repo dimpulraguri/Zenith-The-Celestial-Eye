@@ -1,26 +1,590 @@
+/* Google Fonts - must be first import */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ═══════════════════════════════════════════════
+   ZENITH — Cosmic Design System
+   ═══════════════════════════════════════════════ */
 
+@custom-variant dark (&:is(.dark *));
+
+/* ── Theme Tokens ────────────────────────────── */
 @theme inline {
+  /* Shadcn color mappings */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-space-grotesk);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Zenith Cosmic Palette */
+  --color-cosmic-bg: #050816;
+  --color-cosmic-surface: #0a1628;
+  --color-cosmic-surface-2: #0f1f3d;
+  --color-cosmic-border: rgba(99, 102, 241, 0.15);
+  --color-aurora-purple: #7c3aed;
+  --color-aurora-violet: #8b5cf6;
+  --color-aurora-cyan: #06b6d4;
+  --color-aurora-blue: #3b82f6;
+  --color-aurora-indigo: #6366f1;
+  --color-star-white: rgba(255, 255, 255, 0.9);
+  --color-iss-gold: #f59e0b;
+  --color-satellite-blue: #60a5fa;
+  --color-planet-orange: #fb923c;
+  --color-constellation-silver: rgba(148, 163, 184, 0.6);
+  --color-glow-purple: rgba(139, 92, 246, 0.4);
+  --color-glow-cyan: rgba(6, 182, 212, 0.4);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ── Base Variables ──────────────────────────── */
+:root {
+  /* Override shadcn defaults with cosmic palette */
+  --background: #050816;
+  --foreground: #e2e8f0;
+  --card: rgba(10, 22, 40, 0.8);
+  --card-foreground: #e2e8f0;
+  --popover: #0a1628;
+  --popover-foreground: #e2e8f0;
+  --primary: #8b5cf6;
+  --primary-foreground: #ffffff;
+  --secondary: #1e3a5f;
+  --secondary-foreground: #94a3b8;
+  --muted: rgba(15, 31, 61, 0.6);
+  --muted-foreground: #64748b;
+  --accent: rgba(99, 102, 241, 0.15);
+  --accent-foreground: #a5b4fc;
+  --destructive: #ef4444;
+  --border: rgba(99, 102, 241, 0.15);
+  --input: rgba(15, 31, 61, 0.8);
+  --ring: #8b5cf6;
+  --chart-1: #8b5cf6;
+  --chart-2: #06b6d4;
+  --chart-3: #f59e0b;
+  --chart-4: #10b981;
+  --chart-5: #f43f5e;
+  --radius: 0.75rem;
+  --sidebar: #0a1628;
+  --sidebar-foreground: #94a3b8;
+  --sidebar-primary: #8b5cf6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(99, 102, 241, 0.1);
+  --sidebar-accent-foreground: #a5b4fc;
+  --sidebar-border: rgba(99, 102, 241, 0.12);
+  --sidebar-ring: #8b5cf6;
+
+  /* Typography */
+  --font-inter: "Inter", sans-serif;
+  --font-space-grotesk: "Space Grotesk", sans-serif;
+}
+
+/* ── Global Base Styles ──────────────────────── */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  html {
+    @apply antialiased;
+    font-family: var(--font-inter);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #050816;
+    color: #e2e8f0;
+    font-family: var(--font-inter);
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-space-grotesk);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.6);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Keyframe Animations ─────────────────────── */
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes aurora-shift {
+  0% {
+    background-position: 0% 50%;
+    opacity: 0.4;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 0.7;
+  }
+  100% {
+    background-position: 0% 50%;
+    opacity: 0.4;
+  }
+}
+
+@keyframes earth-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes iss-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes radar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes orbit-spin {
+  from { transform: rotate(0deg) translateX(140px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(140px) rotate(-360deg); }
+}
+
+@keyframes lens-appear {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); filter: blur(8px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0);    filter: blur(0px); }
+}
+
+@keyframes scan-line {
+  0%   { top: 0%; opacity: 0.6; }
+  50%  { opacity: 0.3; }
+  100% { top: 100%; opacity: 0; }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.6),
+      0 0 60px rgba(6, 182, 212, 0.2);
+  }
+}
+
+/* ── Utility Classes ─────────────────────────── */
+@layer utilities {
+  /* Glassmorphism */
+  .glass {
+    background: rgba(10, 22, 40, 0.6);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(99, 102, 241, 0.12);
+  }
+
+  .glass-strong {
+    background: rgba(5, 8, 22, 0.85);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+  }
+
+  .glass-subtle {
+    background: rgba(15, 31, 61, 0.3);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(99, 102, 241, 0.08);
+  }
+
+  /* Aurora gradient text */
+  .text-aurora {
+    background: linear-gradient(135deg, #8b5cf6, #06b6d4, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-aurora-warm {
+    background: linear-gradient(135deg, #f59e0b, #8b5cf6, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glow effects */
+  .glow-purple {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.4),
+      0 0 40px rgba(139, 92, 246, 0.1);
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.4),
+      0 0 40px rgba(6, 182, 212, 0.1);
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.5),
+      0 0 40px rgba(245, 158, 11, 0.2);
+  }
+
+  .glow-text-purple {
+    text-shadow: 0 0 20px rgba(139, 92, 246, 0.8),
+      0 0 40px rgba(139, 92, 246, 0.4);
+  }
+
+  /* Aurora background */
+  .aurora-bg {
+    background: radial-gradient(
+        ellipse 80% 50% at 50% -20%,
+        rgba(139, 92, 246, 0.2) 0%,
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse 60% 40% at 80% 80%,
+        rgba(6, 182, 212, 0.1) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse 50% 60% at 10% 60%,
+        rgba(99, 102, 241, 0.1) 0%,
+        transparent 50%
+      ),
+      #050816;
+  }
+
+  /* Cosmic card */
+  .cosmic-card {
+    background: rgba(10, 22, 40, 0.6);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .cosmic-card:hover {
+    border-color: rgba(139, 92, 246, 0.35);
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.15),
+      0 0 0 1px rgba(139, 92, 246, 0.1);
+    transform: translateY(-2px);
+  }
+
+  /* ISS pulse animation */
+  .iss-pulse {
+    animation: iss-pulse 2s ease-in-out infinite;
+  }
+
+  /* Live badge pulse */
+  .live-dot {
+    animation: live-pulse 1.5s ease-in-out infinite;
+  }
+
+  /* Float animation */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* Marquee ticker */
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+    display: flex;
+  }
+  .animate-marquee:hover {
+    animation-play-state: paused;
+  }
+
+  /* Shimmer skeleton */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(15, 31, 61, 0.4) 25%,
+      rgba(30, 58, 95, 0.6) 50%,
+      rgba(15, 31, 61, 0.4) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Gradient borders */
+  .border-aurora {
+    border: 1px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+
+  .border-aurora::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, #8b5cf6, #06b6d4, #3b82f6);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* No-scrollbar utility */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .live-dot,
+    .iss-pulse {
+      animation: none;
+    }
+
+    * {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ── Star Field Background ───────────────────── */
+.star-field {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background: white;
+  animation: star-twinkle ease-in-out infinite;
+}
+
+/* ── Loading Skeleton ────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 31, 61, 0.4) 25%,
+    rgba(30, 58, 95, 0.6) 50%,
+    rgba(15, 31, 61, 0.4) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 0.5rem;
+  height: 100%;
+  width: 100%;
+}
+
+/* ── Cesium Globe Container ──────────────────── */
+#cesium-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Hide Cesium UI chrome */
+.cesium-viewer-toolbar,
+.cesium-viewer-animationContainer,
+.cesium-viewer-timelineContainer,
+.cesium-viewer-bottom,
+.cesium-infoBox,
+.cesium-selection-wrapper {
+  display: none !important;
+}
+
+/* ── Leaflet Map Styles ──────────────────────── */
+.leaflet-container {
+  background: #050816 !important;
+  font-family: var(--font-inter) !important;
+}
+
+.leaflet-tile-pane {
+  filter: brightness(0.85) saturate(0.6) hue-rotate(200deg);
+}
+
+/* ── Recharts ────────────────────────────────── */
+.recharts-text {
+  fill: #64748b !important;
+  font-family: var(--font-inter) !important;
+  font-size: 11px !important;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(99, 102, 241, 0.1) !important;
+}
+
+/* ── Custom Range Slider ─────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(99, 102, 241, 0.2);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
+}
+
+/* ── AI Loading Skeleton ───────────────────── */
+@keyframes shimmer-move {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.10) 37%,
+    rgba(255, 255, 255, 0.04) 63%
+  );
+  background-size: 800px 100%;
+  animation: shimmer-move 1.6s ease-in-out infinite;
 }
