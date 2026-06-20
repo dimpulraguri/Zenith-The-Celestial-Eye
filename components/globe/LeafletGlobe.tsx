@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useISS } from "@/hooks/useISS";
+import { useSimulationTime } from "@/hooks/useSimulationTime";
 import { useSatellites } from "@/hooks/useSatellites";
+import { useLocationSelection } from "@/hooks/useLocationSelection";
 import { useLocationStore } from "@/lib/stores/locationStore";
 import { useCelestialStore } from "@/lib/stores/celestialStore";
 import { MAP_CONFIG, SATELLITE_CATEGORY_CONFIG } from "@/constants";
-import { CosmicRadar } from "@/components/globe/CosmicRadar";
+import { CosmicRadarScan } from "@/components/globe/CosmicRadarScan";
 import type { CelestialObject } from "@/types";
 
 // Dynamic leaflet import
@@ -27,14 +29,20 @@ export function LeafletGlobe({
   const leafletMapRef = useRef<import("leaflet").Map | null>(null);
   const issMarkerRef = useRef<import("leaflet").Marker | null>(null);
   const satelliteMarkersRef = useRef<import("leaflet").LayerGroup | null>(null);
-  const locationMarkerRef = useRef<import("leaflet").CircleMarker | null>(null);
+  const locationMarkerRef = useRef<import("leaflet").Marker | null>(null);
   const orbitPathRef = useRef<import("leaflet").Polyline[] | null>(null);
   const constellationLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
 
-  const { position: issPosition } = useISS();
+  const {
+    position: issPosition,
+    previousPath: issPreviousPath,
+    futurePath: issFuturePath,
+  } = useISS();
+  const { currentSimulationDate } = useSimulationTime();
   const { satellites } = useSatellites();
   const { location } = useLocationStore();
-  const { setSelectedObject, setRadarActive } = useCelestialStore();
+  const { setSelectedObject } = useCelestialStore();
+  const { selectLocation } = useLocationSelection();
 
   // ── Initialize map ─────────────────────────────
   useEffect(() => {
@@ -90,6 +98,14 @@ export function LeafletGlobe({
 
       satelliteMarkersRef.current = L.layerGroup().addTo(map);
       leafletMapRef.current = map;
+
+      map.on("click", (event: import("leaflet").LeafletMouseEvent) => {
+        selectLocation({
+          lat: event.latlng.lat,
+          lon: event.latlng.lng,
+          name: `Selected ${event.latlng.lat.toFixed(3)}, ${event.latlng.lng.toFixed(3)}`,
+        });
+      });
     };
 
     init();
@@ -160,6 +176,21 @@ export function LeafletGlobe({
       className: "",
       iconSize: [8, 8],
       iconAnchor: [4, 4],
+    });
+  }, []);
+
+  const createLocationIcon = useCallback(() => {
+    if (!L) return null;
+    return L.divIcon({
+      html: `
+        <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
+          <div style="position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, rgba(99,102,241,0.35), transparent 55%); animation: pulse-ring 1.8s ease-out infinite;"></div>
+          <div style="width: 14px; height: 14px; border-radius: 50%; background: rgba(99,102,241,1); box-shadow: 0 0 14px rgba(99,102,241,0.75);"></div>
+        </div>
+      `,
+      className: "",
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
     });
   }, []);
 
@@ -235,17 +266,25 @@ export function LeafletGlobe({
     setTimeout(() => setRadarActive(false), 3500);
 
     if (locationMarkerRef.current) locationMarkerRef.current.remove();
-    locationMarkerRef.current = L.circleMarker([location.lat, location.lon], {
-      radius: 6,
-      fillColor: "#8b5cf6",
-      fillOpacity: 0.9,
-      color: "rgba(139,92,246,0.4)",
-      weight: 8,
-    }).addTo(map);
+      const icon = createLocationIcon();
+      if (!icon) return;
+      locationMarkerRef.current = L.marker([location.lat, location.lon], {
+        icon,
+        title: location.name,
+        alt: location.name,
+        zIndexOffset: 1200,
+      }).addTo(map);
 
-    map.flyTo([location.lat, location.lon], 4, { duration: 1.5 });
-  }, [location.lat, location.lon, location.name, setRadarActive]);
+      locationMarkerRef.current.bindPopup(`
+        <div style="color:#e2e8f0;font-size:12px;line-height:1.3;">
+          <strong>${location.name}</strong><br/>
+          ${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}
+        </div>
+      `, { closeButton: false, offset: [0, -24], className: "leaflet-popup-glow" });
 
+      locationMarkerRef.current.openPopup();
+      map.flyTo([location.lat, location.lon], 4, { duration: 1.5 });
+    }, [location.lat, location.lon, location.name]);
   // ── ISS Orbit Path ──────────────────────────────
   useEffect(() => {
     if (!leafletMapRef.current || !L) return;
@@ -259,56 +298,41 @@ export function LeafletGlobe({
 
     if (!showOrbitPath) return;
 
-    let cancelled = false;
+    if (!issPreviousPath?.length && !issFuturePath?.length) return;
 
-    const drawPath = async () => {
-      try {
-        const { fetchISSTLE } = await import("@/services/iss");
-        const { generateOrbitPath } = await import("@/utils/orbital");
-        const tle = await fetchISSTLE();
-        const points = await generateOrbitPath(tle, 120);
-        if (cancelled || points.length < 2) return;
+    const track = [...(issPreviousPath ?? []), ...(issFuturePath ?? [])];
+    if (track.length < 2) return;
 
-        // Split at anti-meridian crossings
-        const segments: [number, number][][] = [];
-        let current: [number, number][] = [];
-        for (let i = 0; i < points.length; i++) {
-          const pt = points[i];
-          if (i > 0 && Math.abs(pt.lon - points[i - 1].lon) > 180) {
-            segments.push(current);
-            current = [];
-          }
-          current.push([pt.lat, pt.lon]);
-        }
-        if (current.length > 0) segments.push(current);
-
-        if (!L || !leafletMapRef.current || cancelled) return;
-
-        const polylines: import("leaflet").Polyline[] = [];
-        segments.forEach(seg => {
-          const line = L!.polyline(seg, {
-            color: "rgba(245,158,11,0.55)",
-            weight: 1.5,
-            dashArray: "4 6",
-            lineCap: "round",
-          }).addTo(leafletMapRef.current!);
-          polylines.push(line);
-        });
-        orbitPathRef.current = polylines;
-      } catch (e) {
-        console.warn("[LeafletGlobe] Orbit path draw failed:", e);
+    const segments: [number, number][][] = [];
+    let current: [number, number][] = [];
+    for (let i = 0; i < track.length; i++) {
+      const pt = track[i];
+      if (i > 0 && Math.abs(pt.lon - track[i - 1].lon) > 180) {
+        segments.push(current);
+        current = [];
       }
-    };
+      current.push([pt.lat, pt.lon]);
+    }
+    if (current.length > 0) segments.push(current);
 
-    drawPath();
-
+    const polylines: import("leaflet").Polyline[] = [];
+    segments.forEach((seg) => {
+      const line = L!.polyline(seg, {
+        color: "rgba(245,158,11,0.55)",
+        weight: 1.5,
+        dashArray: "4 6",
+        lineCap: "round",
+      }).addTo(leafletMapRef.current!);
+      polylines.push(line);
+    });
+    orbitPathRef.current = polylines;
     return () => {
-      cancelled = true;
       if (orbitPathRef.current) {
-        orbitPathRef.current.forEach(p => p.remove());
+        orbitPathRef.current.forEach((p) => p.remove());
         orbitPathRef.current = null;
       }
     };
+
   }, [showOrbitPath]);
 
   // ── Constellation overlay ───────────────────────
@@ -418,7 +442,7 @@ export function LeafletGlobe({
       />
       {/* Day/Night terminator overlay */}
       {showTerminator && <DayNightLeafletOverlay />}
-      <CosmicRadar />
+      <CosmicRadarScan />
     </div>
   );
 }

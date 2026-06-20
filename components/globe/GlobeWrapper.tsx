@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback, useRef, Suspense, lazy } from "react";
+import { useState, useCallback, useRef, Suspense, lazy, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "motion/react";
 import { GlobeControls } from "@/components/globe/GlobeControls";
 import { DayNightOverlay } from "@/components/globe/OrbitPath";
 import { SkyReplay } from "@/components/replay/SkyReplay";
 import { ScreenshotMode } from "@/components/screenshot/ScreenshotMode";
+import { CosmicRadarScan } from "@/components/globe/CosmicRadarScan";
 import { useSettingsStore } from "@/lib/stores/settingsStore";
 import { useQueryClient } from "@tanstack/react-query";
 import type { CesiumZoomRef } from "@/components/globe/CesiumGlobe";
@@ -101,6 +102,12 @@ export function GlobeWrapper() {
   const [showOrbitPath, setShowOrbitPath] = useState(true);
   const [showConstellations, setShowConstellations] = useState(false);
   const [showTerminator, setShowTerminator] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Track hydration — only render conditional content after client takes over
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   // Shared ref — CesiumGlobe populates this once the Viewer is ready
   const cesiumZoomRef = useRef<CesiumZoomRef | null>(null);
@@ -117,7 +124,12 @@ export function GlobeWrapper() {
     <div className="relative w-full h-full overflow-hidden bg-[#050816]">
       {/* Globe */}
       <AnimatePresence mode="wait">
-        {globeMode === "2d" ? (
+        {!isHydrated ? (
+          // Prevent hydration mismatch — show skeleton during SSR + hydration
+          <div key="skeleton" className="absolute inset-0">
+            <GlobeSkeleton label={globeMode === "3d" ? "Loading 3D Globe…" : "Loading Sky Map…"} />
+          </div>
+        ) : globeMode === "2d" ? (
           <motion.div
             key="leaflet"
             initial={{ opacity: 0 }}
@@ -147,10 +159,13 @@ export function GlobeWrapper() {
       </AnimatePresence>
 
       {/* Day/Night terminator overlay — 3D (Cesium) mode only */}
-      {showTerminator && globeMode === "3d" && <DayNightOverlay />}
+      {isHydrated && showTerminator && globeMode === "3d" && <DayNightOverlay />}
 
       {/* Atmosphere glow */}
       <AtmosphereGlow />
+
+      {/* Cosmic radar scan overlay */}
+      <CosmicRadarScan />
 
       {/* Globe controls toolbar */}
       <GlobeControls

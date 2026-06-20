@@ -51,7 +51,7 @@ export async function computeISSPosition(
         speed: pos.speed,
         inclination: ISS_CONFIG.inclination,
         timestamp: date.getTime(),
-        visibility: determineVisibility(pos.lat, pos.lon),
+        visibility: determineVisibility(pos.lat, pos.lon, date),
       };
     }
   } catch (error) {
@@ -60,6 +60,24 @@ export async function computeISSPosition(
 
   // Fallback to OpenNotify
   return fetchOpenNotifyPosition();
+}
+
+export async function propagateISSTLEPosition(
+  tle: TLEData,
+  date: Date = new Date()
+): Promise<ISSPosition | null> {
+  const pos = await propagateSatellite(tle, date);
+  if (!pos) return null;
+
+  return {
+    lat: pos.lat,
+    lon: pos.lon,
+    altitude: pos.altitude,
+    speed: pos.speed,
+    inclination: ISS_CONFIG.inclination,
+    timestamp: date.getTime(),
+    visibility: determineVisibility(pos.lat, pos.lon, date),
+  };
 }
 
 // ── OpenNotify Fallback ───────────────────────
@@ -96,12 +114,12 @@ async function fetchOpenNotifyPosition(): Promise<ISSPosition> {
 // ── Determine ISS Visibility ───────────────────
 function determineVisibility(
   lat: number,
-  lon: number
+  lon: number,
+  date: Date
 ): "daylight" | "eclipsed" | "visible" {
-  // Simplified: day/night based on subsolar point
-  const now = new Date();
+  // Simplified: day/night based on subsolar point for given date
   const dayOfYear = Math.floor(
-    (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000
+    (date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000
   );
   const declination = -23.45 * Math.cos((360 / 365) * (dayOfYear + 10) * (Math.PI / 180));
   const hourAngle = ((lon + 180) % 360) - 180;

@@ -24,7 +24,16 @@ export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
+
     const {
       objectId,
       name,
@@ -51,7 +60,9 @@ export async function POST(req: NextRequest) {
       includeTeacherNote?: boolean;
     };
 
-    if (!objectId || !name || !level) {
+    // Validate required fields
+    if (!objectId?.trim() || !name?.trim() || !level) {
+      console.warn("[AI Explain] Missing required fields:", { objectId, name, level });
       return NextResponse.json(
         { error: "Missing required fields: objectId, name, level" },
         { status: 400 }

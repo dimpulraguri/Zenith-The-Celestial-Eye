@@ -30,6 +30,8 @@ export function ObjectPanel() {
       ? "Planet"
       : selectedObject.type === "constellation"
       ? "Constellation"
+      : selectedObject.type === "location"
+      ? "Ground Location"
       : "Celestial Object";
 
   return (

@@ -49,6 +49,15 @@ export function useAIExplanation(
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchExplanation = useCallback(async () => {
+    // Validate object has required fields
+    if (!object?.id || !object?.name || !object?.type) {
+      setExplanation(getStaticExplanation(object?.type || "satellite", level));
+      setFacts(getStaticFacts(object?.type || "satellite"));
+      if (teacherMode) setTeacherNote(getStaticTeacherNotes(object?.type || "satellite"));
+      setIsLoading(false);
+      return;
+    }
+
     // Cancel any in-flight request
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -93,7 +102,11 @@ export function useAIExplanation(
         }),
       });
 
-      if (!res.ok) throw new Error(`API ${res.status}`);
+      if (!res.ok) {
+        // Log the error but fall back to static content
+        console.warn(`[useAIExplanation] API returned ${res.status}, using static fallback`);
+        throw new Error(`API ${res.status}`);
+      }
 
       const data = await res.json();
 
@@ -115,7 +128,13 @@ export function useAIExplanation(
       }
     } catch (err: unknown) {
       if ((err as { name?: string }).name === "AbortError") return;
-      console.error("[useAIExplanation] fetch failed:", err);
+      
+      // Log only real fetch errors, not validation failures
+      const errMsg = (err as Error)?.message || String(err);
+      if (!errMsg.includes("API 400")) {
+        console.error("[useAIExplanation] fetch failed:", err);
+      }
+      
       if (!controller.signal.aborted) {
         setIsError(true);
         setFromAI(false);

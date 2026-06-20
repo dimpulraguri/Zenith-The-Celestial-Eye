@@ -113,19 +113,29 @@ export function getOrbitalElements(tle: TLEData): OrbitalElements {
 // ── Generate orbit path points ─────────────────
 export async function generateOrbitPath(
   tle: TLEData,
-  steps: number = 100
+  steps: number = 100,
+  centerDate: Date = new Date(),
+  durationMinutes: number = 90
+): Promise<OrbitPoint[]> {
+  const halfDurationMs = (durationMinutes * 60 * 1000) / 2;
+  return generateOrbitTrack(tle, centerDate, halfDurationMs, steps);
+}
+
+export async function generateOrbitTrack(
+  tle: TLEData,
+  centerDate: Date = new Date(),
+  halfWindowMs: number = 45 * 60 * 1000,
+  steps: number = 60
 ): Promise<OrbitPoint[]> {
   try {
     const sat = await getSatelliteLib();
     const satrec = sat.twoline2satrec(tle.line1, tle.line2);
-    const elements = getOrbitalElements(tle);
-    const periodMs = elements.period * 60 * 1000;
-
-    const now = Date.now();
     const points: OrbitPoint[] = [];
+    const startTime = centerDate.getTime() - halfWindowMs;
+    const endTime = centerDate.getTime() + halfWindowMs;
+    const stepMs = Math.max(10_000, Math.floor((endTime - startTime) / steps));
 
-    for (let i = 0; i <= steps; i++) {
-      const t = now + (i / steps) * periodMs;
+    for (let t = startTime; t <= endTime; t += stepMs) {
       const date = new Date(t);
       const posVel = sat.propagate(satrec, date);
 
@@ -148,7 +158,7 @@ export async function generateOrbitPath(
       });
     }
 
-    return points;
+    return points.sort((a, b) => a.time - b.time);
   } catch {
     return [];
   }

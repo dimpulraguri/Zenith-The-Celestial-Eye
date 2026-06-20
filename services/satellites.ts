@@ -60,6 +60,7 @@ export async function propagateSatellites(
 export async function getVisibleSatellites(
   observerLat: number,
   observerLon: number,
+  observationDate: Date = new Date(),
   maxDistance: number = 3000 // km
 ): Promise<SatelliteData[]> {
   const [visualTLEs] = await Promise.all([
@@ -67,7 +68,7 @@ export async function getVisibleSatellites(
   ]);
 
   const allTLEs = [...visualTLEs];
-  const satellites = await propagateSatellites(allTLEs, new Date(), 150);
+  const satellites = await propagateSatellites(allTLEs, observationDate, 150);
 
   // Filter to visible (roughly) from observer location
   return satellites

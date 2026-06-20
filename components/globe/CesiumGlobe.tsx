@@ -4,7 +4,10 @@ import { useEffect, useRef } from "react";
 import type React from "react";
 import { useISS } from "@/hooks/useISS";
 import { useLocationStore } from "@/lib/stores/locationStore";
-import { useCelestialStore } from "@/lib/stores/celestialStore";
+import { useLocationSelection } from "@/hooks/useLocationSelection";
+import { useCesiumEntities } from "@/hooks/useCesiumEntities";
+import { useCameraController } from "@/hooks/useCameraController";
+import { useObjectSelection } from "@/hooks/useObjectSelection";
 import type { CelestialObject } from "@/types";
 
 // ─── Dev-only error logger ────────────────────────────────────────────────────
@@ -34,7 +37,14 @@ export function CesiumGlobe({ zoomRef }: CesiumGlobeProps = {}) {
 
   const { position: issPosition } = useISS();
   const { location }              = useLocationStore();
+  const { selectLocation }        = useLocationSelection();
   const { setSelectedObject }     = useCelestialStore();
+
+  // Hooks to manage Cesium entities, camera, and selection
+  // They operate on viewerRef when the viewer is ready
+  useCesiumEntities(viewerRef as React.MutableRefObject<any | null>);
+  const { flyTo, focusOnEntity } = useCameraController(viewerRef as React.MutableRefObject<any | null>);
+  const { handleClick } = useObjectSelection(viewerRef as React.MutableRefObject<any | null>);
 
   // ── Main initialisation ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -44,15 +54,23 @@ export function CesiumGlobe({ zoomRef }: CesiumGlobeProps = {}) {
       // Set base URL before any Cesium import
       (window as Window & { CESIUM_BASE_URL?: string }).CESIUM_BASE_URL = "/cesium";
 
+      // Load Cesium widgets CSS
+      if (!document.querySelector('link[href*="widgets.css"]')) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = "/cesium/Widgets/widgets.css";
+        document.head.appendChild(link);
+      }
+
       // Dynamically import Cesium (client-only)
-      let Cesium: Awaited<typeof import("cesium")>;
+      let CesiumModule: any;
       try {
-        Cesium = await import("cesium");
-        await import("cesium/Build/Cesium/Widgets/widgets.css");
+        CesiumModule = await import("cesium");
       } catch (err) {
         devError("Failed to import Cesium module", err);
         return;
       }
+      const Cesium = CesiumModule.default ?? CesiumModule;
 
       // Apply Ion token (needed for terrain; imagery uses built-in Bing fallback)
       const token = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
@@ -126,6 +144,37 @@ export function CesiumGlobe({ zoomRef }: CesiumGlobeProps = {}) {
         devError("ISS entity failed (non-fatal)", err);
       }
 
+      // ── Selected location marker ──────────────────────────────────────────────
+      try {
+        viewer.entities.add({
+          id      : "selected-location",
+          name    : "Selected Location",
+          position: Cesium.Cartesian3.fromDegrees(location.lon, location.lat, 0),
+          point   : {
+            pixelSize: 14,
+            color: Cesium.Color.fromCssColorString("#8b5cf6"),
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+            scaleByDistance: new Cesium.NearFarScalar(1e5, 1.3, 5e6, 0.2),
+          },
+          label: {
+            text: location.name,
+            font: "14px Inter",
+            fillColor: Cesium.Color.fromCssColorString("#e2e8f0"),
+            outlineColor: Cesium.Color.fromCssColorString("rgba(17,24,39,0.8)"),
+            outlineWidth: 3,
+            pixelOffset: new Cesium.Cartesian2(0, -20),
+            translucencyByDistance: new Cesium.NearFarScalar(1e5, 1.0, 3e6, 0.0),
+          },
+          billboard: {
+            image: createLocationBillboard(),
+            verticalOrigin: Cesium.VerticalOrigin.CENTER,
+          },
+        });
+      } catch (err) {
+        devError("Selected location entity failed (non-fatal)", err);
+      }
+
       // ── Click handler ────────────────────────────────────────────────────────
       try {
         const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
@@ -149,6 +198,25 @@ export function CesiumGlobe({ zoomRef }: CesiumGlobeProps = {}) {
               };
               setSelectedObject(obj);
             }
+          } else {
+            // Clicked on globe background — derive lat/lon and update observer
+            try {
+              const cartesian = viewer.camera.pickEllipsoid(movement.position, viewer.scene.globe.ellipsoid);
+              if (cartesian) {
+                const carto = Cesium.Cartographic.fromCartesian(cartesian);
+                const lon = Cesium.Math.toDegrees(carto.longitude);
+                const lat = Cesium.Math.toDegrees(carto.latitude);
+                selectLocation({
+                  lat,
+                  lon,
+                  name: `Selected ${lat.toFixed(3)}, ${lon.toFixed(3)}`,
+                });
+                // cinematic focus
+                flyTo({ lon, lat, height: 2e6, durationMs: 900 });
+              }
+            } catch (e) {
+              // ignore
+            }
           }
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
       } catch (err) {
@@ -164,20 +232,23 @@ export function CesiumGlobe({ zoomRef }: CesiumGlobeProps = {}) {
         viewerRef.current = null;
       }
     };
-  }, [setSelectedObject]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setSelectedObject, selectLocation, location.lat, location.lon, location.name, flyTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── ISS position updates ─────────────────────────────────────────────────────
+  // ── ISS and selected location updates ─────────────────────────────────────
   useEffect(() => {
-    if (!viewerRef.current || !issPosition) return;
+    if (!viewerRef.current) return;
 
     const update = async () => {
       try {
         const Cesium = await import("cesium");
         const viewer = viewerRef.current as {
-          entities: { getById: (id: string) => { position?: unknown } | undefined };
+          entities: { getById: (id: string) => { position?: unknown; label?: unknown; point?: unknown; billboard?: unknown } | undefined };
+          camera: { flyTo: (options: any) => void };
+          clock: { currentTime: unknown };
         };
+
         const issEntity = viewer.entities.getById("iss");
-        if (issEntity) {
+        if (issEntity && issPosition) {
           issEntity.position = new Cesium.ConstantPositionProperty(
             Cesium.Cartesian3.fromDegrees(
               issPosition.lon,
@@ -186,13 +257,30 @@ export function CesiumGlobe({ zoomRef }: CesiumGlobeProps = {}) {
             )
           );
         }
+
+        const locationEntity = viewer.entities.getById("selected-location");
+        if (locationEntity) {
+          locationEntity.position = new Cesium.ConstantPositionProperty(
+            Cesium.Cartesian3.fromDegrees(location.lon, location.lat, 0)
+          );
+          if (locationEntity.label) {
+            locationEntity.label.text = location.name;
+          }
+        }
+
+        if (location.lat !== undefined && location.lon !== undefined) {
+          viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(location.lon, location.lat, 2_000_000),
+            duration: 1.3,
+          });
+        }
       } catch (err) {
-        devError("ISS position update failed", err);
+        devError("Viewer update failed", err);
       }
     };
 
     update();
-  }, [issPosition]);
+  }, [issPosition, location.lat, location.lon, location.name]);
 
   return (
     <div
@@ -223,6 +311,36 @@ function createISSBillboard(): string {
   ctx.lineWidth   = 1.5;
   ctx.beginPath();
   ctx.ellipse(24, 24, 20, 8, Math.PI / 4, 0, Math.PI * 2);
+  ctx.stroke();
+
+  return canvas.toDataURL();
+}
+
+function createLocationBillboard(): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = 48;
+  canvas.height = 48;
+  const ctx = canvas.getContext("2d")!;
+
+  const gradient = ctx.createRadialGradient(24, 24, 0, 24, 24, 22);
+  gradient.addColorStop(0, "rgba(139,92,246,0.8)");
+  gradient.addColorStop(0.6, "rgba(139,92,246,0.28)");
+  gradient.addColorStop(1, "rgba(139,92,246,0)");
+
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(24, 24, 22, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#8b5cf6";
+  ctx.beginPath();
+  ctx.arc(24, 24, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(24, 24, 11, 0, Math.PI * 2);
   ctx.stroke();
 
   return canvas.toDataURL();

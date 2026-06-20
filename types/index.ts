@@ -17,6 +17,7 @@ export type CelestialObjectType =
   | "satellite"
   | "planet"
   | "constellation"
+  | "location"
   | "meteor_shower"
   | "conjunction";
 
@@ -50,8 +51,15 @@ export interface ISSPosition {
   altitude: number; // km
   speed: number; // km/s
   inclination: number; // degrees
+  azimuth?: number; // degrees
   timestamp: number;
   visibility?: "daylight" | "eclipsed" | "visible";
+}
+
+export interface OrbitalPrediction {
+  currentPoint: OrbitPoint;
+  previousPath: OrbitPoint[];
+  futurePath: OrbitPoint[];
 }
 
 export interface ISSPassPrediction {
@@ -79,10 +87,13 @@ export interface SatelliteData {
   altitude: number; // km
   speed: number; // km/s
   inclination: number; // degrees
+  azimuth?: number; // degrees of ground-track heading
   category: SatelliteCategory;
   launchDate?: string;
   country?: string;
   purpose?: string;
+  previousPath?: OrbitPoint[];
+  futurePath?: OrbitPoint[];
 }
 
 // ── Planets ───────────────────────────────────
@@ -195,6 +206,18 @@ export interface ReplayEvent {
   duration?: number; // seconds to replay
   coordinates?: { lat: number; lon: number };
   zoom?: number;
+}
+
+export type PlaybackSpeed = 0.5 | 1 | 5 | 10 | 50 | 100 | 1000;
+
+export interface SimulationState {
+  currentSimulationDate: Date;
+  timeOffset: number;
+  isPlaying: boolean;
+  playbackSpeed: PlaybackSpeed;
+  direction: 1 | -1;
+  selectedEvent: ReplayEvent | null;
+  isRealtimeMode: boolean;
 }
 
 export type ReplayState = "idle" | "playing" | "paused" | "ended";

@@ -24,9 +24,11 @@ function HUDBar() {
   const { position: issPos } = useISS();
   const { totalCount } = useSatellites();
   const { location } = useLocationStore();
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState<Date | null>(null);
 
   useEffect(() => {
+    // Set initial time on client only (prevents hydration mismatch)
+    setTime(new Date());
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
@@ -79,7 +81,7 @@ function HUDBar() {
       {/* Clock */}
       <div className="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
         <Clock className="w-3 h-3" />
-        <span className="font-mono tabular-nums">{formatTime(time)} UTC</span>
+        <span className="font-mono tabular-nums">{time ? formatTime(time) : "00:00:00"} UTC</span>
       </div>
     </div>
   );
