@@ -41,7 +41,7 @@ export function LeafletGlobe({
   const { currentSimulationDate } = useSimulationTime();
   const { satellites } = useSatellites();
   const { location } = useLocationStore();
-  const { setSelectedObject } = useCelestialStore();
+  const { setSelectedObject, setRadarActive } = useCelestialStore();
   const { selectLocation } = useLocationSelection();
 
   // ── Initialize map ─────────────────────────────

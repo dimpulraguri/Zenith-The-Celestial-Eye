@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type React from "react";
 import { useISS } from "@/hooks/useISS";
 import { useLocationStore } from "@/lib/stores/locationStore";
+import { useCelestialStore } from "@/lib/stores/celestialStore";
 import { useLocationSelection } from "@/hooks/useLocationSelection";
 import { useCesiumEntities } from "@/hooks/useCesiumEntities";
 import { useCameraController } from "@/hooks/useCameraController";
@@ -211,8 +212,6 @@ export function CesiumGlobe({ zoomRef }: CesiumGlobeProps = {}) {
                   lon,
                   name: `Selected ${lat.toFixed(3)}, ${lon.toFixed(3)}`,
                 });
-                // cinematic focus
-                flyTo({ lon, lat, height: 2e6, durationMs: 900 });
               }
             } catch (e) {
               // ignore
@@ -232,23 +231,18 @@ export function CesiumGlobe({ zoomRef }: CesiumGlobeProps = {}) {
         viewerRef.current = null;
       }
     };
-  }, [setSelectedObject, selectLocation, location.lat, location.lon, location.name, flyTo]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setSelectedObject, selectLocation, flyTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── ISS and selected location updates ─────────────────────────────────────
+  // ── ISS position updates ───────────────────────────────────────────────
   useEffect(() => {
-    if (!viewerRef.current) return;
+    if (!viewerRef.current || !issPosition) return;
 
-    const update = async () => {
+    const updateISS = async () => {
       try {
         const Cesium = await import("cesium");
-        const viewer = viewerRef.current as {
-          entities: { getById: (id: string) => { position?: unknown; label?: unknown; point?: unknown; billboard?: unknown } | undefined };
-          camera: { flyTo: (options: any) => void };
-          clock: { currentTime: unknown };
-        };
-
+        const viewer = viewerRef.current as any;
         const issEntity = viewer.entities.getById("iss");
-        if (issEntity && issPosition) {
+        if (issEntity) {
           issEntity.position = new Cesium.ConstantPositionProperty(
             Cesium.Cartesian3.fromDegrees(
               issPosition.lon,
@@ -257,6 +251,22 @@ export function CesiumGlobe({ zoomRef }: CesiumGlobeProps = {}) {
             )
           );
         }
+      } catch (err) {
+        devError("ISS position update failed", err);
+      }
+    };
+
+    updateISS();
+  }, [issPosition]);
+
+  // ── Selected location updates ──────────────────────────────────────────
+  useEffect(() => {
+    if (!viewerRef.current) return;
+
+    const updateLocation = async () => {
+      try {
+        const Cesium = await import("cesium");
+        const viewer = viewerRef.current as any;
 
         const locationEntity = viewer.entities.getById("selected-location");
         if (locationEntity) {
@@ -275,12 +285,12 @@ export function CesiumGlobe({ zoomRef }: CesiumGlobeProps = {}) {
           });
         }
       } catch (err) {
-        devError("Viewer update failed", err);
+        devError("Location update failed", err);
       }
     };
 
-    update();
-  }, [issPosition, location.lat, location.lon, location.name]);
+    updateLocation();
+  }, [location.lat, location.lon, location.name]);
 
   return (
     <div
